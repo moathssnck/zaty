@@ -33,7 +33,7 @@ export function ProfessionalSelect({
       <Button
         variant="outline"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full h-12 sm:h-14 justify-between text-right bg-white border-2 border-gray-200 rounded-xl hover:border-pink-300 focus:border-pink-900 transition-all duration-200 shadow-sm"
+        className="w-full h-12 justify-between text-right bg-white border-2 border-gray-200 rounded-xl hover:border-pink-300 focus:border-pink-900 transition-all duration-200 shadow-sm"
         dir="rtl"
       >
         <div className="flex flex-col items-end">
@@ -60,7 +60,7 @@ export function ProfessionalSelect({
                     onValueChange(option.value)
                     setIsOpen(false)
                   }}
-                  className="w-full p-4 text-right hover:bg-pink-50 transition-colors border-b border-gray-100 last:border-b-0 flex items-center justify-between"
+                  className="w-full text-right hover:bg-pink-50 transition-colors border-b border-gray-100 last:border-b-0 flex items-center justify-between"
                 >
                   <div className="flex flex-col items-end">
                     <span className="font-medium text-gray-800">{option.label}</span>

